@@ -1,0 +1,189 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated BuildRank user profile stored under their own UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Authentication user ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name from Google Sign-In.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified user email address.",
+          "minLength": 3,
+          "maxLength": 200
+        },
+        "photoURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "Optional profile avatar URL.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when profile was first created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when profile was last updated."
+        }
+      },
+      "required": ["uid", "displayName", "email", "createdAt", "updatedAt"]
+    },
+    "Assessment": {
+      "title": "Assessment",
+      "description": "A hackathon project rubric assessment owned by an authenticated user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique assessment identifier.",
+          "minLength": 3,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the assessment owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "projectName": {
+          "type": "string",
+          "description": "Name of the assessed hackathon project.",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["gemini", "sample"],
+          "description": "Engine mode used for the assessment."
+        },
+        "modeNotice": {
+          "type": "string",
+          "description": "Human-readable notice describing engine mode.",
+          "maxLength": 600
+        },
+        "modelName": {
+          "type": "string",
+          "description": "Model name when evaluated via AI, or empty string.",
+          "maxLength": 100
+        },
+        "fallbackReason": {
+          "type": "string",
+          "description": "Optional reason if sample fallback was selected.",
+          "maxLength": 300
+        },
+        "overallScore": {
+          "type": "number",
+          "description": "Weighted readiness score out of 100."
+        },
+        "readinessLabel": {
+          "type": "string",
+          "enum": ["Needs more detail", "Promising", "Demo-ready"],
+          "description": "Overall readiness classification based on submitted info."
+        },
+        "overallExplanation": {
+          "type": "string",
+          "description": "Explanation of the overall score.",
+          "maxLength": 2000
+        },
+        "calculationFormula": {
+          "type": "string",
+          "description": "Transparent formula showing weighted calculation.",
+          "maxLength": 2000
+        },
+        "disclaimer": {
+          "type": "string",
+          "description": "Mandatory preparation-only disclaimer.",
+          "maxLength": 400
+        },
+        "isSampleData": {
+          "type": "boolean",
+          "description": "Whether the submission used built-in sample project data."
+        },
+        "categories": {
+          "type": "array",
+          "description": "Bounded list of category assessment objects (max 20)."
+        },
+        "improvements": {
+          "type": "array",
+          "description": "Bounded list of 3 prioritized improvements."
+        },
+        "projectSnapshot": {
+          "type": "object",
+          "description": "Submitted project details snapshot."
+        },
+        "rubricSnapshot": {
+          "type": "array",
+          "description": "Bounded list of rubric criteria used (max 20)."
+        },
+        "createdAtIso": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Client ISO display timestamp.",
+          "maxLength": 64
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when assessment was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when assessment was last updated."
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "projectName",
+        "mode",
+        "modeNotice",
+        "overallScore",
+        "readinessLabel",
+        "overallExplanation",
+        "calculationFormula",
+        "disclaimer",
+        "isSampleData",
+        "categories",
+        "improvements",
+        "projectSnapshot",
+        "rubricSnapshot",
+        "createdAtIso",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Private user profile records keyed by Firebase Auth UID."
+    },
+    "/assessments/{assessmentId}": {
+      "schema": {
+        "$ref": "#/entities/Assessment"
+      },
+      "description": "User-owned hackathon project assessments with ownerId isolation."
+    }
+  }
+}

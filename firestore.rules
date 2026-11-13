@@ -1,0 +1,205 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'photoURL', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.uid == userId
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 120
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 200
+        && (!data.keys().hasAny(['photoURL']) || (data.photoURL is string && data.photoURL.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAssessment(data, assessmentId) {
+      return data.keys().hasAll([
+          'id',
+          'ownerId',
+          'projectName',
+          'mode',
+          'modeNotice',
+          'overallScore',
+          'readinessLabel',
+          'overallExplanation',
+          'calculationFormula',
+          'disclaimer',
+          'isSampleData',
+          'categories',
+          'improvements',
+          'projectSnapshot',
+          'rubricSnapshot',
+          'createdAtIso',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'ownerId',
+          'projectName',
+          'mode',
+          'modeNotice',
+          'modelName',
+          'fallbackReason',
+          'overallScore',
+          'readinessLabel',
+          'overallExplanation',
+          'calculationFormula',
+          'disclaimer',
+          'isSampleData',
+          'categories',
+          'improvements',
+          'projectSnapshot',
+          'rubricSnapshot',
+          'createdAtIso',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.id == assessmentId
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.projectName is string
+        && data.projectName.size() >= 1
+        && data.projectName.size() <= 160
+        && data.mode is string
+        && data.mode in ['gemini', 'sample']
+        && data.modeNotice is string
+        && data.modeNotice.size() >= 1
+        && data.modeNotice.size() <= 600
+        && (!data.keys().hasAny(['modelName']) || data.modelName == null || (data.modelName is string && data.modelName.size() <= 100))
+        && (!data.keys().hasAny(['fallbackReason']) || data.fallbackReason == null || (data.fallbackReason is string && data.fallbackReason.size() <= 300))
+        && data.overallScore is number
+        && data.overallScore >= 0
+        && data.overallScore <= 100
+        && data.readinessLabel is string
+        && data.readinessLabel in ['Needs more detail', 'Promising', 'Demo-ready']
+        && data.overallExplanation is string
+        && data.overallExplanation.size() >= 1
+        && data.overallExplanation.size() <= 2000
+        && data.calculationFormula is string
+        && data.calculationFormula.size() >= 1
+        && data.calculationFormula.size() <= 2000
+        && data.disclaimer is string
+        && data.disclaimer.size() >= 1
+        && data.disclaimer.size() <= 400
+        && data.isSampleData is bool
+        && data.categories is list
+        && data.categories.size() >= 1
+        && data.categories.size() <= 20
+        && data.categories[0] is map
+        && data.improvements is list
+        && data.improvements.size() >= 1
+        && data.improvements.size() <= 3
+        && data.improvements[0] is map
+        && data.rubricSnapshot is list
+        && data.rubricSnapshot.size() >= 1
+        && data.rubricSnapshot.size() <= 20
+        && data.rubricSnapshot[0] is map
+        && data.projectSnapshot is map
+        && data.projectSnapshot.keys().hasAll(['projectName', 'problem', 'intendedUsers', 'solution', 'workingStatus'])
+        && data.projectSnapshot.projectName is string
+        && data.projectSnapshot.projectName.size() >= 1
+        && data.projectSnapshot.projectName.size() <= 160
+        && data.createdAtIso is string
+        && data.createdAtIso.size() >= 1
+        && data.createdAtIso.size() <= 64
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isEmailVerified() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if false;
+      allow create: if isEmailVerified()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isEmailVerified()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'photoURL', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /assessments/{assessmentId} {
+      allow get: if isEmailVerified()
+        && isValidId(assessmentId)
+        && existing().ownerId == request.auth.uid;
+      allow list: if isEmailVerified()
+        && resource.data.ownerId == request.auth.uid;
+      allow create: if isEmailVerified()
+        && isValidId(assessmentId)
+        && isValidAssessment(incoming(), assessmentId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isEmailVerified()
+        && isValidId(assessmentId)
+        && isValidAssessment(incoming(), assessmentId)
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'projectName',
+          'mode',
+          'modeNotice',
+          'modelName',
+          'fallbackReason',
+          'overallScore',
+          'readinessLabel',
+          'overallExplanation',
+          'calculationFormula',
+          'disclaimer',
+          'isSampleData',
+          'categories',
+          'improvements',
+          'projectSnapshot',
+          'rubricSnapshot',
+          'updatedAt'
+        ]);
+      allow delete: if isEmailVerified()
+        && isValidId(assessmentId)
+        && existing().ownerId == request.auth.uid;
+    }
+  }
+}

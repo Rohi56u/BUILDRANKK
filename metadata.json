@@ -1,0 +1,8 @@
+{
+  "name": "BuildRank",
+  "description": "Prepare hackathon and demo-day projects against a weighted judging rubric with transparent evidence, gap detection, and prioritized next actions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
